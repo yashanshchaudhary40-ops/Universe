@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f8f9fa">
+<title>Yash AI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg:#f8f9fa;
+  --panel:#ffffff;
+  --soft:#f0f2f5;
+  --text:#202124;
+  --muted:#777b84;
+  --border:#e5e7eb;
+  --accent:#c5d7f5;
+  --user:#e8f0fe;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; width:100%; min-height:100%; }
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+body.dark {
+  color-scheme:dark;
+  --bg:#131314;
+  --panel:#1e1f20;
+  --soft:#292a2d;
+  --text:#e3e3e3;
+  --muted:#a1a1aa;
+  --border:#38393d;
+  --accent:#39465b;
+  --user:#303b4c;
+}
+button,textarea,input { font:inherit; }
+button { cursor:pointer; }
+#loading {
+  position:fixed; inset:0; display:grid; place-items:center;
+  z-index:9999; background:var(--bg); color:var(--text);
+}
+#app {
+  height:100vh;
+  height:100dvh;
+  min-height:0;
+  display:flex;
+  overflow:hidden;
+}
+.sidebar {
+  width:280px; flex:0 0 280px; background:var(--bg);
+  padding:18px 12px; display:flex; flex-direction:column;
+  border-right:1px solid var(--border); min-height:0;
+}
+.side-scroll { overflow-y:auto; min-height:0; flex:1; }
+.main { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; }
+.topbar {
+  height:64px; flex:none; display:flex; align-items:center;
+  justify-content:space-between; padding:0 20px; gap:12px;
+}
+.messages {
+  flex:1; min-height:0; overflow-y:auto; scroll-behavior:smooth;
+  padding:18px 18px 24px;
+}
+.message-list { width:100%; max-width:820px; margin:0 auto; }
+.message { display:flex; margin:20px 0; gap:12px; align-items:flex-start; }
+.message.user { justify-content:flex-end; }
+.bubble {
+  max-width:min(85%,720px); border-radius:22px; padding:13px 17px;
+  line-height:1.65; overflow-wrap:anywhere; font-size:15px;
+}
+.user .bubble { background:var(--user); border-radius:22px 22px 5px 22px; }
+.assistant .bubble { padding:4px 0; max-width:100%; }
+.avatar {
+  width:32px;height:32px; flex:none;border-radius:50%;
+  display:grid;place-items:center;background:var(--soft);font-size:15px;
+}
+.assistant .avatar { background:linear-gradient(135deg,#d9e7ff,#e9ddff);color:#3b4d7b; }
+.markdown { line-height:1.75; }
+.markdown p { margin:8px 0; }
+.markdown h1,.markdown h2,.markdown h3 { font-weight:650; margin:18px 0 8px; }
+.markdown h1 {font-size:1.45rem}.markdown h2 {font-size:1.25rem}.markdown h3 {font-size:1.1rem}
+.markdown ul,.markdown ol { padding-left:24px; margin:8px 0; }
+.markdown ul {list-style:disc}.markdown ol {list-style:decimal}
+.markdown blockquote { border-left:3px solid #8ba9df; padding-left:12px; color:var(--muted); margin:10px 0; }
+.markdown a { color:#638bd1;text-decoration:underline; }
+.markdown code {
+  background:var(--soft); border-radius:5px; padding:2px 5px;
+  font-family:ui-monospace,SFMono-Regular,monospace;font-size:.9em;
+}
+.markdown pre {
+  background:#202124;color:#e8eaed;padding:14px;border-radius:12px;
+  overflow:auto;margin:12px 0;white-space:pre;
+}
+.markdown pre code {background:transparent;padding:0;color:inherit;}
+.markdown table {border-collapse:collapse;display:block;overflow:auto;max-width:100%;}
+.markdown th,.markdown td {border:1px solid var(--border);padding:7px 10px;text-align:left;}
+.composer-wrap {
+  flex:none; width:100%; padding:8px 18px calc(12px + env(safe-area-inset-bottom));
+  background:var(--bg);
+}
+.composer-inner { max-width:820px; margin:auto; }
+.composer {
+  display:flex;align-items:flex-end;gap:8px;padding:10px 12px;
+  background:var(--soft);border:1px solid transparent;border-radius:26px;
+}
+.composer:focus-within { border-color:var(--border); }
+#prompt {
+  flex:1;resize:none;border:0;outline:0;background:transparent;
+  color:var(--text);max-height:160px;min-height:28px;
+  line-height:1.5;padding:4px 3px;
+}
+#prompt::placeholder {color:var(--muted);}
+.icon-btn {
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;background:transparent;color:var(--text);
+  border-radius:50%;width:38px;height:38px;flex:none;
+}
+.icon-btn:hover,.new-chat:hover,.history-item:hover {background:var(--soft);}
+.send-btn {background:var(--text);color:var(--bg);}
+.send-btn:disabled {opacity:.35;cursor:not-allowed;}
+.new-chat {
+  display:flex;align-items:center;gap:10px;border:0;background:transparent;
+  border-radius:22px;padding:11px 14px;margin:15px 0 20px;color:var(--text);
+  text-align:left;
+}
+.history-label {font-size:12px;color:var(--muted);padding:8px 12px;}
+.history-item {
+  display:flex;align-items:center;gap:6px;border-radius:12px;
+  padding:9px 8px 9px 12px;margin:2px 0;min-width:0;
+}
+.history-title {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;font-size:13px;}
+.history-item.active {background:var(--soft);}
+.history-actions {display:flex;gap:0;opacity:0;}
+.history-item:hover .history-actions,.history-item.active .history-actions {opacity:1;}
+.history-actions button {width:26px;height:28px;}
+.welcome {max-width:820px;margin:8vh auto 0;padding:20px;}
+.welcome h1 {
+  font-size:clamp(30px,5vw,48px);font-weight:600;letter-spacing:-1.7px;
+  background:linear-gradient(90deg,#4285f4,#a46de0,#d78b70);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.suggestion {
+  border:1px solid var(--border);background:var(--panel);border-radius:16px;
+  padding:14px;text-align:left;min-height:92px;color:var(--text);
+}
+.suggestion:hover {background:var(--soft);}
+.modal-backdrop {
+  position:fixed;inset:0;background:#0008;z-index:100;
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+.modal-backdrop.open {display:flex;}
+.modal {
+  width:min(100%,460px);max-height:90dvh;overflow:auto;
+  background:var(--panel);color:var(--text);border:1px solid var(--border);
+  border-radius:22px;padding:22px;box-shadow:0 20px 80px #0003;
+}
+.field {display:flex;flex-direction:column;gap:7px;margin:15px 0;}
+.field label {font-size:13px;font-weight:600;}
+.field input,.field textarea {
+  width:100%;padding:11px 12px;border-radius:10px;
+  border:1px solid var(--border);background:var(--bg);color:var(--text);outline:none;
+}
+.field textarea {min-height:130px;resize:vertical;}
+.primary {
+  border:0;background:var(--text);color:var(--bg);
+  padding:10px 16px;border-radius:22px;font-weight:600;
+}
+.secondary {
+  border:1px solid var(--border);background:transparent;color:var(--text);
+  padding:10px 15px;border-radius:22px;
+}
+.overlay {display:none;}
+.typing {display:inline-flex;gap:4px;padding:9px 0;}
+.typing span {width:6px;height:6px;border-radius:50%;background:var(--muted);animation:pulse 1s infinite;}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes pulse {0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+.toast {
+  position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%);background:#27282a;color:white;padding:10px 16px;
+  border-radius:20px;font-size:13px;z-index:200;display:none;max-width:90%;
+}
+.stop-btn {background:#b42318!important;color:white!important;}
+@media(max-width:700px) {
+  #app {height:100vh;height:100dvh;}
+  .sidebar {
+    position:fixed;z-index:50;inset:0 auto 0 0;width:min(82vw,310px);
+    transform:translateX(-105%);transition:transform .22s ease;
+    box-shadow:10px 0 35px #0001;
+  }
+  .sidebar.open {transform:translateX(0);}
+  .overlay {
+    position:fixed;inset:0;z-index:40;background:#0006;
+  }
+  .overlay.open {display:block;}
+  .topbar {height:56px;padding:0 10px;}
+  .messages {padding:12px 13px 16px;}
+  .message {margin:15px 0;gap:8px;}
+  .bubble {max-width:88%;font-size:14px;padding:11px 13px;}
+  .assistant .bubble {max-width:calc(100% - 40px);}
+  .composer-wrap {padding:6px 10px calc(8px + env(safe-area-inset-bottom));}
+  .welcome {margin:7vh auto 0;padding:12px 5px;}
+  .welcome h1 {letter-spacing:-1px;}
+  .suggestion {min-height:80px;padding:11px;font-size:13px;}
+  .history-actions {opacity:1;}
+}
+@media(prefers-reduced-motion:reduce) {
+  *,*::before,*::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}
+}
+</style>
+</head>
+<body>
+<div id="loading">Loading App...</div>
+
+<div id="app" style="display:none">
+  <div id="overlay" class="overlay"></div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="flex items-center justify-between px-2">
+      <div class="font-semibold text-lg tracking-tight">✦ Yash AI</div>
+      <button id="closeSidebar" class="icon-btn" aria-label="Close sidebar">✕</button>
+    </div>
+
+    <button id="newChat" class="new-chat">
+      <span class="text-xl">＋</span><span class="text-sm font-medium">New chat</span>
+    </button>
+
+    <div class="side-scroll">
+      <div class="history-label">Recent</div>
+      <div id="history"></div>
+    </div>
+
+    <div class="border-t pt-3 mt-3" style="border-color:var(--border)">
+      <button id="systemBtn" class="new-chat w-full my-1 text-sm">⚙️ <span>System prompt</span></button>
+      <button id="settingsBtn" class="new-chat w-full my-1 text-sm">🔑 <span>Settings</span></button>
+      <button id="themeBtn" class="new-chat w-full my-1 text-sm">🌙 <span>Dark mode</span></button>
+      <div class="text-xs px-3 pt-2" style="color:var(--muted)">Your AI workspace</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="flex items-center gap-2 min-w-0">
+        <button id="menuBtn" class="icon-btn" aria-label="Open menu">☰</button>
+        <div class="font-semibold text-base truncate">Yash AI <span class="text-xs font-normal" style="color:var(--muted)">· Universal Chat</span></div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="headerNew" class="icon-btn" title="New chat" aria-label="New chat">＋</button>
+        <button id="headerSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+      </div>
+    </header>
+
+    <section id="messages" class="messages" aria-live="polite">
+      <div id="welcome" class="welcome">
+        <div class="text-sm font-medium mb-3" style="color:var(--muted)">YOUR PERSONAL AI ASSISTANT</div>
+        <h1>Hello, Yash.</h1>
+        <p class="text-2xl mt-2 mb-7" style="color:var(--muted)">Where should we start?</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button class="suggestion" data-prompt="Explain a difficult topic in simple words.">
+            <div class="font-medium mb-2">📚 Learn something</div>
+            <div style="color:var(--muted)">Explain a topic simply</div>
+          </button>
+          <button class="suggestion" data-prompt="Help me brainstorm a creative business idea.">
+            <div class="font-medium mb-2">💡 Brainstorm ideas</div>
+            <div style="color:var(--muted)">Explore new possibilities</div>
+          </button>
+          <button class="suggestion" data-prompt="Help me write a short story with an original plot.">
+            <div class="font-medium mb-2">✍️ Write something</div>
+            <div style="color:var(--muted)">Create an original story</div>
+          </button>
+          <button class="suggestion" data-prompt="Give me a step-by-step plan to learn programming.">
+            <div class="font-medium mb-2">💻 Build a skill</div>
+            <div style="color:var(--muted)">Make a learning plan</div>
+          </button>
+        </div>
+      </div>
+      <div id="messageList" class="message-list"></div>
+    </section>
+
+    <div class="composer-wrap">
+      <div class="composer-inner">
+        <div class="composer">
+          <button id="systemQuick" class="icon-btn" title="System prompt" aria-label="System prompt">☷</button>
+          <textarea id="prompt" rows="1" placeholder="Ask Yash AI anything..." aria-label="Message"></textarea>
+          <button id="sendBtn" class="icon-btn send-btn" aria-label="Send message" title="Send">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+        <p class="text-center text-xs mt-2" style="color:var(--muted)">AI can make mistakes. Verify important information.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="modal">
+    <div class="flex items-center justify-between gap-3">
+      <h2 id="settingsTitle" class="text-xl font-semibold">API Settings</h2>
+      <button class="icon-btn" data-close="settingsModal" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">Connect your OpenRouter account to start chatting.</p>
+    <div class="field">
+      <label for="apiKey">OpenRouter API Key</label>
+      <input id="apiKey" type="password" placeholder="sk-or-v1-..." autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="modelName">Model name</label>
+      <input id="modelName" type="text" value="deepseek/deepseek-r1:free" placeholder="provider/model">
+    </div>
+    <p class="text-xs leading-relaxed" style="color:var(--muted)">The key is stored in this browser's localStorage as requested. Avoid using a personal key on shared devices or exposing this page publicly. For a public app, route requests through your own secure backend.</p>
+    <div class="flex justify-end gap-2 mt-5">
+      <button class="secondary" data-close="settingsModal">Cancel</button>
+      <button id="saveSettings" class="primary">Save settings</button>
+    </div>
+  </div>
+</div>
+
+<div id="systemModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="systemTitle">
+  <div class="modal">
+    <div class="flex items-center justify-between gap-3">
+      <h2 id="systemTitle" class="text-xl font-semibold">System prompt</h2>
+      <button class="icon-btn" data-close="systemModal" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm mt-2" style="color:var(--muted)">Set the instructions that guide the assistant's replies.</p>
+    <div class="field">
+      <label for="systemPrompt">Instructions</label>
+      <textarea id="systemPrompt" placeholder="You are a helpful, friendly assistant..."></textarea>
+    </div>
+    <p class="text-xs" style="color:var(--muted)">This prompt is applied globally to your chats.</p>
+    <div class="flex justify-end gap-2 mt-5">
+      <button class="secondary" data-close="systemModal">Cancel</button>
+      <button id="saveSystem" class="primary">Save prompt</button>
+    </div>
+  </div>
+</div>
+
+<div id="renameModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
+  <div class="modal">
+    <div class="flex items-center justify-between">
+      <h2 id="renameTitle" class="text-xl font-semibold">Rename chat</h2>
+      <button class="icon-btn" data-close="renameModal" aria-label="Close">✕</button>
+    </div>
+    <div class="field">
+      <label for="renameInput">Chat name</label>
+      <input id="renameInput" type="text" maxlength="80" placeholder="New chat name">
+    </div>
+    <div class="flex justify-end gap-2 mt-5">
+      <button class="secondary" data-close="renameModal">Cancel</button>
+      <button id="saveRename" class="primary">Rename</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+"use strict";
+
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const STORAGE = {
+    key: "yashai_openrouter_key",
+    model: "yashai_model",
+    chats: "yashai_chats",
+    theme: "yashai_theme",
+    system: "yashai_system_prompt"
+  };
+
+  const DEFAULT_MODEL = "deepseek/deepseek-r1:free";
+  let apiKey = "";
+  let model = DEFAULT_MODEL;
+  let chats = [];
+  let currentChatId = null;
+  let systemPrompt = "";
+  let dark = false;
+  let abortController = null;
+  let busy = false;
+  let renameTarget = null;
+  let toastTimer = null;
+
+  function safeGet(key, fallback = "") {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : value;
+    } catch (error) {
+      console.warn("Storage unavailable:", error);
+      return fallback;
+    }
+  }
+
+  function safeSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+      console.warn("Could not save to storage:", error);
+      showToast("Could not save. Browser storage may be full or disabled.");
+      return false;
+    }
+  }
+
+  function showToast(message) {
+    const el = $("toast");
+    if (!el) return;
+    el.textContent = message;
+    el.style.display = "block";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = "none"; }, 3200);
+  }
+
+  function makeId() {
+    return "chat-" + Date.now().toString(36) + "-" +
+      Math.random().toString(36).slice(2, 9);
+  }
+
+  function createChat() {
+    return {
+      id: makeId(),
+      title: "New chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+  }
+
+  function getCurrentChat() {
+    return chats.find(chat => chat.id === currentChatId) || null;
+  }
+
+  function saveChats() {
+    safeSet(STORAGE.chats, JSON.stringify(chats));
+  }
+
+  function normalizeChats(value) {
+    if (!Array.isArray(value)) return [];
+    return value.filter(chat => chat && typeof chat === "object")
+      .map(chat => ({
+        id: typeof chat.id === "string" ? chat.id : makeId(),
+        title: typeof chat.title === "string" ? chat.title : "New chat",
+        messages: Array.isArray(chat.messages)
+          ? chat.messages.filter(msg =>
+              msg && typeof msg.content === "string" &&
+              ["user", "assistant"].includes(msg.role))
+              .map(msg => ({
+                role: msg.role,
+                content: msg.content
+              }))
+          : [],
+        createdAt: Number(chat.createdAt) || Date.now(),
+        updatedAt: Number(chat.updatedAt) || Date.now()
+      }));
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, char => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;",
+      '"':"&quot;", "'":"&#39;"
+    })[char]);
+  }
+
+  function renderMarkdown(text) {
+    const source = String(text ?? "");
+    try {
+      if (window.marked && window.DOMPurify) {
+        const html = marked.parse(source, { breaks: true, gfm: true });
+        return DOMPurify.sanitize(html, {
+          USE_PROFILES: { html: true }
+        });
+      }
+    } catch (error) {
+      console.warn("Markdown rendering failed:", error);
+    }
+    return escapeHtml(source).replace(/\n/g, "<br>");
+  }
+
+  function scrollToBottom(force = true) {
+    const container = $("messages");
+    if (!container) return;
+    if (force) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }
+
+  function renderHistory() {
+    const container = $("history");
+    if (!container) return;
+    container.replaceChildren();
+
+    const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+    if (!sorted.length) {
+      const empty = document.createElement("div");
+      empty.className = "px-3 py-3 text-xs";
+      empty.style.color = "var(--muted)";
+      empty.textContent = "Your conversations will appear here.";
+      container.appendChild(empty);
+      return;
+    }
+
+    for (const chat of sorted) {
+      const row = document.createElement("div");
+      row.className = "history-item" +
+        (chat.id === currentChatId ? " active" : "");
+      row.dataset.id = chat.id;
+
+      const title = document.createElement("button");
+      title.type = "button";
+      title.className = "history-title 
